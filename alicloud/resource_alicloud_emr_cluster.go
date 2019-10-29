@@ -45,6 +45,7 @@ func resourceAlicloudEmrCluster() *schema.Resource {
 				Default:      "PostPaid",
 				ValidateFunc: validateAllowedStringValue([]string{string(PrePaid), string(PostPaid)}),
 			},
+			"tags": tagsSchema(),
 			"host_group": {
 				Type:     schema.TypeSet,
 				Optional: true,
@@ -201,6 +202,13 @@ func resourceAlicloudEmrCluster() *schema.Resource {
 
 func resourceAlicloudEmrClusterCreate(d *schema.ResourceData, meta interface{}) error {
 	client := meta.(*connectivity.AliyunClient)
+
+	emrService := EmrService{client}
+
+	d.Partial(true)
+	if err := emrService.setEmrClusterTags(d); err != nil {
+		return WrapError(err)
+	}
 
 	request := emr.CreateCreateClusterV2Request()
 	if name, ok := d.GetOk("name"); ok {
@@ -376,8 +384,6 @@ func resourceAlicloudEmrClusterCreate(d *schema.ResourceData, meta interface{}) 
 	response, _ := raw.(*emr.CreateClusterV2Response)
 	d.SetId(response.ClusterId)
 
-	emrService := EmrService{client}
-
 	stateConf := BuildStateConf([]string{"CREATING"}, []string{"IDLE"}, d.Timeout(schema.TimeoutCreate), 5*time.Minute, emrService.EmrClusterStateRefreshFunc(d.Id(), []string{"CREATE_FAILED"}))
 	stateConf.PollInterval = 5 * time.Second
 	if _, err := stateConf.WaitForState(); err != nil {
@@ -415,13 +421,23 @@ func resourceAlicloudEmrClusterRead(d *schema.ResourceData, meta interface{}) er
 	d.Set("eas_enable", object.ClusterInfo.EasEnable)
 	d.Set("user_defined_emr_ecs_role", object.ClusterInfo.UserDefinedEmrEcsRole)
 	d.Set("related_cluster_id", object.ClusterInfo.RelateClusterId)
+	tags, err := emrService.DescribeEmrClusterTags(d.Id(), TagResourceInstance)
+	if err != nil {
+		return WrapError(err)
+	}
+	d.Set("tags", emrService.tagsToMap(tags))
 
 	return nil
 }
 
 func resourceAlicloudEmrClusterUpdate(d *schema.ResourceData, meta interface{}) error {
 	client := meta.(*connectivity.AliyunClient)
+	emrService := EmrService{client}
 	d.Partial(true)
+	if err := emrService.setEmrClusterTags(d); err != nil {
+		return WrapError(err)
+	}
+
 	if d.HasChange("name") {
 		request := emr.CreateModifyClusterNameRequest()
 		request.Name = d.Get("name").(string)
