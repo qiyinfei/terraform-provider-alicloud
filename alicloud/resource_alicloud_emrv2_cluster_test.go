@@ -417,6 +417,72 @@ func TestAccAliCloudEmrV2Cluster_basic(t *testing.T) {
 							"graceful_shutdown":    "false",
 							"spot_instance_remedy": "false",
 							"node_resize_strategy": "COST_OPTIMIZED",
+							"auto_scaling_policy": []map[string]interface{}{
+								{
+									"constraints": []map[string]interface{}{
+										{
+											"max_capacity": "999",
+											"min_capacity": "1",
+										},
+									},
+									"scaling_rules": []map[string]interface{}{
+										{
+											"rule_name":            "scalingRule01",
+											"trigger_type":         "METRICS_TRIGGER",
+											"activity_type":        "SCALE_OUT",
+											"adjustment_type":      "CHANGE_IN_CAPACITY",
+											"adjustment_value":     "1",
+											"min_adjustment_value": "1",
+											"metrics_trigger": []map[string]interface{}{
+												{
+													"time_window":              "120",
+													"evaluation_count":         "1",
+													"cool_down_interval":       "120",
+													"condition_logic_operator": "And",
+													"time_constraints": []map[string]interface{}{
+														{
+															"start_time": "00:00",
+															"end_time":   "23:59",
+														},
+													},
+													"conditions": []map[string]interface{}{
+														{
+															"metric_name":         "yarn_resourcemanager_queue_AvailableMBPercentage",
+															"statistics":          "AVG",
+															"comparison_operator": "LE",
+															"threshold":           "10",
+															"tags": []map[string]interface{}{
+																{
+																	"key":   "app",
+																	"value": "emr",
+																},
+															},
+														},
+													},
+												},
+											},
+										},
+										{
+											"rule_name":            "scalingRule02",
+											"trigger_type":         "TIME_TRIGGER",
+											"activity_type":        "SCALE_OUT",
+											"adjustment_type":      "CHANGE_IN_CAPACITY",
+											"adjustment_value":     "1",
+											"min_adjustment_value": "1",
+											"time_trigger": []map[string]interface{}{
+												{
+													"launch_time":            "16:00:00",
+													"start_time":             "1745739800000",
+													"end_time":               "1745744400000",
+													"launch_expiration_time": "3600",
+													"recurrence_type":        "DAILY",
+													"recurrence_value":       "3",
+												},
+											},
+										},
+									},
+								},
+							},
 							"cost_optimized_config": []map[string]interface{}{
 								{
 									"on_demand_base_capacity":                  "1",
@@ -506,6 +572,20 @@ func TestAccAliCloudEmrV2Cluster_basic1(t *testing.T) {
 							"key_pair_name":        "${alicloud_ecs_key_pair.default.id}",
 							"data_disk_encrypted":  "true",
 							"data_disk_kms_key_id": "${data.alicloud_kms_keys.default.ids.0}",
+						},
+					},
+					"bootstrap_scripts": []map[string]interface{}{
+						{
+							"script_name":             "bssName01",
+							"script_path":             "oss://emr/tf-test/ts.sh",
+							"script_args":             "--a=b",
+							"execution_moment":        "AFTER_STARTED",
+							"execution_fail_strategy": "FAILED_CONTINUE",
+							"node_selector": []map[string]interface{}{
+								{
+									"node_select_type": "CLUSTER",
+								},
+							},
 						},
 					},
 					"node_groups": []map[string]interface{}{
@@ -628,7 +708,7 @@ func TestAccAliCloudEmrV2Cluster_basic2(t *testing.T) {
 					"cluster_name":      name,
 					"deploy_mode":       "NORMAL",
 					"security_mode":     "NORMAL",
-					"applications":         []string{"HADOOP-COMMON", "HDFS", "YARN"},
+					"applications":      []string{"HADOOP-COMMON", "HDFS", "YARN"},
 					"node_attributes": []map[string]interface{}{
 						{
 							"vpc_id":            "${alicloud_vpc.default.id}",
@@ -667,15 +747,15 @@ func TestAccAliCloudEmrV2Cluster_basic2(t *testing.T) {
 							},
 						},
 						{
-							"node_group_type":               "CORE",
-							"node_group_name":               "emr-core",
-							"payment_type":                  "PayAsYouGo",
-							"vswitch_ids":                   []string{"${alicloud_vswitch.default.id}"},
-							"instance_types":                []string{"ecs.g7.xlarge"},
-							"node_count":                    "2",
-							"with_public_ip":                "false",
-							"graceful_shutdown":             "false",
-							"spot_instance_remedy":          "false",
+							"node_group_type":      "CORE",
+							"node_group_name":      "emr-core",
+							"payment_type":         "PayAsYouGo",
+							"vswitch_ids":          []string{"${alicloud_vswitch.default.id}"},
+							"instance_types":       []string{"ecs.g7.xlarge"},
+							"node_count":           "2",
+							"with_public_ip":       "false",
+							"graceful_shutdown":    "false",
+							"spot_instance_remedy": "false",
 							"system_disk": []map[string]interface{}{
 								{
 									"category":          "cloud_essd",
@@ -868,8 +948,8 @@ func TestAccAliCloudEmrV2Cluster_basic2(t *testing.T) {
 				}),
 				Check: resource.ComposeTestCheckFunc(
 					testAccCheck(map[string]string{
-						"node_groups.#":        "4",
-						"force_sleep":          "60",
+						"node_groups.#": "4",
+						"force_sleep":   "60",
 					}),
 				),
 			},
